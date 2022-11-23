@@ -21,9 +21,9 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
 //
-//Route::middleware('auth:sanctum')->get('/file/{id}', [CloudStorageController::class, 'getFile']);
-//
-//Route::middleware('auth:sanctum')->post('/file/upload', [CloudStorageController::class, 'setFile']);
+Route::middleware('auth:sanctum')->get('/file/{id}', [CloudStorageController::class, 'getFile']);
+
+Route::middleware('auth:sanctum')->post('/file/upload', [CloudStorageController::class, 'uploadFile']);
 
 Route::middleware('auth:sanctum')->post('/register', [AuthController::class, 'register']);
 
