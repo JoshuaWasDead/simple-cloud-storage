@@ -5,6 +5,7 @@ namespace App\Models\CloudStorage;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Prunable;
+use Illuminate\Support\Facades\Storage;
 
 class StoredFile extends Model
 {
@@ -49,7 +50,6 @@ class StoredFile extends Model
 
     public function pruning()
     {
-        //todo удаление файлов тут
-
+        Storage::delete($this->location);
     }
 }

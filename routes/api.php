@@ -20,10 +20,25 @@ use App\Http\Controllers\CloudStorageController;
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
-//
-Route::middleware('auth:sanctum')->get('/file/{id}', [CloudStorageController::class, 'getFile']);
+
+Route::middleware('auth:sanctum')->get('/file/list', [CloudStorageController::class, 'list']);
+
+
+Route::middleware('auth:sanctum')->delete('/file/delete/{id}', [CloudStorageController::class, 'deleteFile']);
+
+Route::middleware('auth:sanctum')->get('/volume/user', [CloudStorageController::class, 'volumeUser']);
+
+Route::middleware('auth:sanctum')->get('/file/volume/all', [CloudStorageController::class, 'volumeAll']);
+
+Route::middleware('auth:sanctum')->get('/file/volume/folder', [CloudStorageController::class, 'volumeFolder']);
+
+Route::middleware('auth:sanctum')->get('/file/public/{id}', [CloudStorageController::class, 'publicLink']);
 
 Route::middleware('auth:sanctum')->post('/file/upload', [CloudStorageController::class, 'uploadFile']);
+
+Route::middleware('auth:sanctum')->post('/file/rename/{id}', [CloudStorageController::class, 'renameFile']);
+
+Route::middleware('auth:sanctum')->get('/file/{id}', [CloudStorageController::class, 'getFile']);
 
 Route::middleware('auth:sanctum')->post('/register', [AuthController::class, 'register']);
 

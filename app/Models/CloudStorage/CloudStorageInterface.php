@@ -3,33 +3,50 @@
 namespace App\Models\CloudStorage;
 
 use Illuminate\Http\UploadedFile;
+use Throwable;
 
 interface CloudStorageInterface
 {
+    /**
+     * Возвращает уникальный идентификатор пользователя
+     * @return int|string
+     * @throws Throwable
+     */
+    function getUserId(): int|string;
+
+    /**
+     * Устанавливает уникальный идентификатор пользователя, возвращает текущий объект
+     * @param int|string $userId
+     * @return CloudStorageInterface
+     */
+    function setUserId(int|string $userId): CloudStorageInterface;
 
     /**
      * Скачать файл по id <br>
-     * Возвращает путь к файлу если файл найден , иначе false
+     * Возвращает путь к файлу если файл найден, иначе выбрасывает исключение
      * @param int $id id файла
-     * @return string|false
+     * @return string
+     * @throws Throwable
      */
-    function download(int $id): string|false;
+    function download(int $id): string;
 
     /**
      * Загрузить файл<br>
-     * Возвращает id файла при успешной загрузке файла, иначе false
+     * Возвращает id файла при успешной загрузке файла, иначе выбрасывает исключение
      * @param UploadedFile $file Загруженный файл из запроса
      * @param string|null $folder папка, в которую положить файл
      * @param int|null $ttk Сколько хранить файл, дней
-     * @return int|false
+     * @return int
+     * @throws Throwable
      */
-    function upload(UploadedFile $file, ?string $folder = null, ?int $ttk = null): int|false;
+    function upload(UploadedFile $file, string $folder = null, int $ttk = null): int;
 
     /**
      * Удалить файл<br>
-     * Возвращает true при успешном удалении, иначе false
+     * Возвращает true при успешном удалении, иначе выбрасывает исключение
      * @param int $id
      * @return bool
+     * @throws Throwable
      */
     function delete(int $id): bool;
 
@@ -43,45 +60,32 @@ interface CloudStorageInterface
 
     /**
      * Переименовать файл<br>
-     * Возвращает true при успешном переименовании, иначе false
+     * Возвращает true при успешном переименовании, иначе выбрасывает исключение
      * @param int $id
+     * @param string $newName
      * @return bool
+     * @throws Throwable
      */
-    function rename(int $id): bool;
+    function rename(int $id, string $newName): bool;
 
     /**
-     * Создание папки
-     * Возвращает true при успешном создании, иначе false
-     * @param string $name
-     * @return bool
+     * Возвращает форматированную строку с объёмом файлов в папке
+     * @return string
+     * @throws Throwable
      */
-    function folderAdd(string $name): bool;
+    function volumeFolder(string $folder): string;
 
     /**
-     * Удаление папки
-     * Возвращает true при успешном удалении, иначе false
-     * @param string $name
-     * @return bool
-     */
-    function folderRemove(string $name): bool;
-
-    /**
-     * Возвращает форматированную строку с объёмом файлов в папке, false если файлов нет
+     * Возвращает форматированную строку с объёмом файлов на диске
      * @return string
      */
-    function volumeFolder(): string;
+    function volumeAll(): string;
 
     /**
-     * Возвращает форматированную строку с объёмом файлов на диске, false если файлов нет
-     * @return string|false
+     * Возвращает форматированную строку с объёмом файлов на диске пользователя
+     * @return string
      */
-    function volumeAll(): string|false;
-
-    /**
-     * Возвращает форматированную строку с объёмом файлов на диске пользователя, false если файлов нет
-     * @return string|false
-     */
-    function volumeUser(): string|false;
+    function volumeUser(): string;
 
     /**
      * Валидация при загрузке файлов

@@ -2,59 +2,53 @@
 
 namespace App\Models\CloudStorage;
 
+use Illuminate\Contracts\Filesystem\FileNotFoundException;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Env;
-use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Storage;
+use RuntimeException;
 use Symfony\Component\HttpFoundation\File\Exception\UploadException;
 use Symfony\Component\Routing\Exception\ResourceNotFoundException;
-use Throwable;
+use const DIRECTORY_SEPARATOR;
 
 class FileSystemStorage implements CloudStorageInterface
 {
 
-    private int $userId;
-
-    private array $errors;
+    private int|string $userId;
 
     /**
      * @inheritdoc
      */
-    function download(int $id): string|false
+    function download(int $id): string
     {
-        if (is_null($file = StoredFile::find($id))) {
-            $this->errors[] = new ResourceNotFoundException('Файл не найден');
-            return false;
+        if (is_null($file = StoredFile::where('id', '=', $id)->where('owner', '=', $this->getUserId())->first())) {
+            throw new ResourceNotFoundException('Файл не найден');
         }
-        return  $file->location;
+        return $file->location;
     }
 
     /**
      * @inheritdoc
      */
-    function upload(UploadedFile $file, ?string $folder = null, ?int $ttk = null): int|false
+    function upload(UploadedFile $file, string $folder = null, int $ttk = null): int
     {
         $fileName = $file->getClientOriginalName();
-        $savePath = env('USER_STORAGE_FOLDER') . '/' . $this->userId;
+        $savePath = Config::get('storage.path') . '/' . $this->userId;
 
         if (!is_null($folder)) {
             $savePath .= '/' . $folder;
         }
 
         if (!$this->checkIfUserHasSpace($file->getSize())) {
-            $this->errors[] = new UploadException('Not enough space on disk');
-            return false;
+            throw new UploadException('Not enough space on disk');
         }
 
         if (Storage::exists($savePath . '/' . $fileName)) {
-            $this->errors[] = new UploadException('File already exists');
-            return false;
+            throw new UploadException('File already exists');
         }
 
         if (!$path = Storage::putFileAs($savePath, $file, $fileName)) {
-            $this->errors[] = new UploadException('Could not save file');
-            return false;
+            throw new UploadException('Could not save file');
         }
 
         $storedFile = new StoredFile;
@@ -78,7 +72,22 @@ class FileSystemStorage implements CloudStorageInterface
      */
     function delete(int $id): bool
     {
-        // TODO: Implement delete() method.
+        if (!$storedFile = StoredFile::where('id', '=', $id)->where('owner', '=', $this->getUserId())->first()) {
+            throw new FileNotFoundException('File with that id does not exist');
+        }
+
+        if (!Storage::delete($storedFile->location)) {
+            throw new RuntimeException('Could not delete file');
+        }
+
+        $storedFile->delete();
+
+        if (!StoredFile::where('owner', '=', $this->getUserId())->where('folder', '=', $storedFile->folder)->first()) {
+            Storage::deleteDirectory(dirname($storedFile->location));
+        }
+
+
+        return true;
     }
 
     /**
@@ -86,55 +95,74 @@ class FileSystemStorage implements CloudStorageInterface
      */
     function list(string $folder = null): array
     {
-        // TODO: Implement list() method.
+        $storedFiles = StoredFile::where('owner', '=', $this->getUserId());
+        if (!is_null($folder)) $storedFiles->where('folder', '=', $folder);
+
+
+        $list = [];
+
+        foreach ($storedFiles->get() as $storedFile) {
+            if ($storedFile->folder) {
+                $list[$storedFile->folder][] = [
+                    'id' => $storedFile->id,
+                    'name' => basename($storedFile->location),
+                    'hash' => $storedFile->hash,
+                ];
+                continue;
+            }
+            $list['loose'][] = [
+                'id' => $storedFile->id,
+                'name' => basename($storedFile->location),
+                'hash' => $storedFile->hash,
+            ];
+        }
+        return $list;
+
     }
 
     /**
      * @inheritdoc
      */
-    function rename(int $id): bool
+    function rename(int $id, string $newName): bool
     {
-        // TODO: Implement rename() method.
+        if (!$storedFile = StoredFile::where('id', '=', $id)->where('owner', '=', $this->getUserId())->first()) {
+            throw new FileNotFoundException('File with that id does not exist');
+        }
+        $oldPath = pathinfo($storedFile->location);
+        $newPath = $oldPath['dirname'] . DIRECTORY_SEPARATOR . $newName . '.' . $oldPath['extension'];
+        if (!Storage::move($storedFile->location, $newPath)) {
+            throw new RuntimeException('Could not rename file');
+        }
+        $storedFile->location = $newPath;
+        $storedFile->save();
+        return true;
     }
 
     /**
      * @inheritdoc
      */
-    function folderAdd(string $name): bool
+    function volumeFolder(string $folder): string
     {
-        // TODO: Implement folderAdd() method.
+        $volume = (int)StoredFile::where('owner', $this->getUserId())->where('folder', '=', $folder)->sum('file_size');
+        return $this->formatFileSize($volume);
     }
 
     /**
      * @inheritdoc
      */
-    function folderRemove(string $name): bool
+    function volumeAll(): string
     {
-        // TODO: Implement folderRemove() method.
+        $volume = StoredFile::sum('file_size');
+        return $this->formatFileSize($volume);
     }
 
     /**
      * @inheritdoc
      */
-    function volumeFolder(): string
+    function volumeUser(): string
     {
-        // TODO: Implement volumeFolder() method.
-    }
-
-    /**
-     * @inheritdoc
-     */
-    function volumeAll(): string|false
-    {
-        // TODO: Implement volumeAll() method.
-    }
-
-    /**
-     * @inheritdoc
-     */
-    function volumeUser(): string|false
-    {
-        // TODO: Implement volumeUser() method.
+        $volume = (int)StoredFile::where('owner', '=', $this->getUserId())->sum('file_size');
+        return $this->formatFileSize($volume);
     }
 
     /**
@@ -144,31 +172,45 @@ class FileSystemStorage implements CloudStorageInterface
     {
         $size = $file->getSize();
         $extension = $file->clientExtension();
-        if ($size > 20000000 || $extension === 'php') return false;
+        if ($size > Config::get('storage.max_size', 20000000) || $extension === 'php') return false;
         return true;
     }
 
     /**
-     * @param int $userId
-     * @return FileSystemStorage
+     * @inheritdoc
      */
-    public function setUserId(int $userId): FileSystemStorage
+    public function setUserId(int|string $userId): CloudStorageInterface
     {
         $this->userId = $userId;
         return $this;
     }
 
-    /**
-     * @return array
-     */
-    public function getErrors(): array
-    {
-        return $this->errors;
-    }
-
     private function checkIfUserHasSpace(int $size): bool
     {
-        $otherFiles = StoredFile::where('owner', $this->userId)->sum('file_size');
-        return ($size + $otherFiles) < Env::get('MAX_USER_STORAGE', 100000000);
+        $otherFiles = StoredFile::where('owner', '=', $this->getUserId())->sum('file_size');
+        return ($size + $otherFiles) < Config::get('storage . volume', 100000000);
     }
+
+    /**
+     * @inheritdoc
+     */
+    function getUserId(): int|string
+    {
+        return $this->userId;
+    }
+
+
+    /**
+     * Возвращает отформатированную строку размера файла
+     * @param int $volume
+     * @return string
+     */
+    protected function formatFileSize(int $volume): string
+    {
+        if ($volume === 0) return 0;
+        $base = log($volume) / log(1024);
+        $suffixes = array(' bytes', ' KB', ' MB', ' GB', ' TB');
+        return round(pow(1024, $base - floor($base)), 2) . $suffixes[floor($base)];
+    }
+
 }
