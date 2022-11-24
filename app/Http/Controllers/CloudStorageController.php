@@ -3,9 +3,15 @@
 namespace App\Http\Controllers;
 
 use App\Models\CloudStorage\CloudStorageInterface;
-use App\Models\CloudStorage\StoredFile;
+use Exception;
+use Illuminate\Contracts\Filesystem\FileNotFoundException;
+use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Contracts\Routing\ResponseFactory;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\StreamedResponse;
+use Symfony\Component\Routing\Exception\ResourceNotFoundException;
 use Throwable;
 
 class CloudStorageController extends Controller
@@ -22,26 +28,40 @@ class CloudStorageController extends Controller
         $this->storage = $storage;
     }
 
+    /** Скачивание файла
+     * @param $id
+     * @return Application|ResponseFactory|Response|StreamedResponse
+     * @throws Throwable
+     */
     public function getFile($id)
     {
         try {
             $userId = auth()->user()->getAuthIdentifier();
-            if ($result = $this->storage->setUserId($userId)->download($id)) {
-                return Storage::download($result);
-            }
-        } catch (Throwable $ex) {
-            return response(['error' => $ex->getMessage()], 404);
+            $result = $this->storage->setUserId($userId)->download($id);
+            return Storage::download($result);
+        } catch (ResourceNotFoundException $ex) {
+            return response(['error' => 'Файл не найден'], 404);
+        } catch (Exception $ex) {
+            return response(['error' => 'Ошибка сервиса'], 500);
         }
     }
 
+    /**
+     * Удаление файла по id
+     * @param $id
+     * @return Application|ResponseFactory|Response
+     * @throws Throwable
+     */
     public function deleteFile($id)
     {
         try {
             $userId = auth()->user()->getAuthIdentifier();
             $this->storage->setUserId($userId)->delete($id);
             return response(['message' => 'Успешно удалено'], 200);
-        } catch (Throwable $ex) {
-            return response(['error' => $ex->getMessage()], 404);
+        } catch (ResourceNotFoundException $ex) {
+            return response(['error' => 'Файл не найден'], 404);
+        } catch (Exception $ex) {
+            return response(['error' => 'Ошибка сервиса'], 500);
         }
     }
 
@@ -52,8 +72,10 @@ class CloudStorageController extends Controller
             $userId = auth()->user()->getAuthIdentifier();
             $this->storage->setUserId($userId)->rename($id, $newName);
             return response(['message' => 'Успешно переименовано'], 200);
-        } catch (Throwable $ex) {
-            return response(['error' => $ex->getMessage()], 404);
+        } catch (ResourceNotFoundException $ex) {
+            return response(['error' => 'Файл не найден'], 404);
+        } catch (Exception $ex) {
+            return response(['error' => 'Ошибка сервиса'], 500);
         }
     }
 
@@ -76,19 +98,20 @@ class CloudStorageController extends Controller
             $result = $this->storage->upload($fields['file'], $fields['folder'] ?? null, $fields['ttk'] ?? null);
 
             return response(['id' => $result], 200);
-        } catch (Throwable $ex) {
 
-            return response(['error' => $ex->getMessage()], 403);
+        } catch (Exception $ex) {
+            return response(['error' => 'Ошибка сервиса'], 500);
         }
     }
 
     public function publicLink($id)
     {
         // todo сделац
-        $loc = StoredFile::find($id)->location;
-        return Storage::url($loc);
     }
 
+    /**
+     * @return array|Application|ResponseFactory|Response
+     */
     public function list()
     {
         try {
@@ -96,10 +119,13 @@ class CloudStorageController extends Controller
             $folder = $this->request->get('folder') ?? null;
             return $this->storage->setUserId($userId)->list($folder);
         } catch (Throwable $ex) {
-            return response(['error' => $ex->getMessage()], 404);
+            return response(['error' => 'Ошибка сервиса'], 500);
         }
     }
 
+    /** Возвращает объём всех файлов в отдельной папке пользователя
+     * @return Application|ResponseFactory|Response|string
+     */
     public function volumeFolder()
     {
         try {
@@ -107,27 +133,33 @@ class CloudStorageController extends Controller
             $userId = auth()->user()->getAuthIdentifier();
             return $this->storage->setUserId($userId)->volumeFolder($folder);
         } catch (Throwable $ex) {
-            return response(['error' => $ex->getMessage()], 503);
+            return response(['error' => 'Ошибка сервиса'], 500);
         }
     }
 
+    /** Возвращает объём всех файлов пользователя
+     * @return Application|ResponseFactory|Response|string
+     */
     public function volumeUser()
     {
         try {
             $userId = auth()->user()->getAuthIdentifier();
             return $this->storage->setUserId($userId)->volumeUser();
         } catch (Throwable $ex) {
-            return response(['error' => $ex->getMessage()], 503);
+            return response(['error' => 'Ошибка сервиса'], 500);
         }
     }
 
+    /** Возвращает объём всех файлов на диске
+     * @return Application|ResponseFactory|Response|string
+     */
     public function volumeAll()
     {
         try {
             $userId = auth()->user()->getAuthIdentifier();
             return $this->storage->setUserId($userId)->volumeUser();
         } catch (Throwable $ex) {
-            return response(['error' => $ex->getMessage()], 503);
+            return response(['error' => 'Ошибка сервиса'], 500);
         }
     }
 }

@@ -3,73 +3,103 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use Exception;
+use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Contracts\Routing\ResponseFactory;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
+    /** Регистрация пользователя.
+     * Указывается имя, почта, пароль<br>
+     * Можно указать любимый цвет<br>
+     * Только админ может регистрировать пользователя
+     * @param Request $request
+     * @return Application|ResponseFactory|Response
+     */
     public function register(Request $request)
     {
-        if (!auth()->user()->tokenCan('create-users')) {
-            abort(403);
-        }
+        try {
 
-        $fields = $request->validate([
-            'name' => 'required|string',
-            'email' => 'required|string|unique:user,email',
-            'password' => 'required|string|confirmed',
-            'favorite_colour' => 'string'
-        ]);
+            if (!auth()->user()->tokenCan('create-users')) {
+                abort(403);
+            }
 
-        $user = new User();
+            $fields = $request->validate([
+                'name' => 'required|string',
+                'email' => 'required|string|unique:user,email',
+                'password' => 'required|string|confirmed',
+                'favorite_colour' => 'string'
+            ]);
 
-        $user->name = $fields['name'];
-        $user->email = $fields['email'];
-        $user->password = Hash::make($fields['password']);
-        $user->favorite_colour = $fields['favorite_colour'];
+            $user = new User();
 
-        $user->save();
+            $user->name = $fields['name'];
+            $user->email = $fields['email'];
+            $user->password = Hash::make($fields['password']);
+            $user->favorite_colour = $fields['favorite_colour'];
 
-        $token = $user->createToken('api-access')->plainTextToken;
+            $user->save();
 
-        $response = [
-            'token' => $token,
-            'user' => $user,
-        ];
-
-        return response($response, 201);
-    }
-
-    public function login(Request $request)
-    {
-        $fields = $request->validate([
-            'email' => 'required|string',
-            'password' => 'required|string'
-        ]);
-
-        $user = User::where('email', $fields['email'])->first();
-
-        if (!$user || !Hash::check($fields['password'], $user->password)) {
-            return response(
-                ['message' => 'Неправильный логин или пароль'],
-                401
-            );
-        }
-
-        $user->tokens()->delete();
-        if ($user->id == 1) {
-            $token = $user->createToken('api-access', ['create-users'])->plainTextToken;
-        } else
             $token = $user->createToken('api-access')->plainTextToken;
 
-        $response = [
-            'token' => $token,
-            'user' => $user,
-        ];
-        return $response;
+            $response = [
+                'token' => $token,
+                'user' => $user,
+            ];
 
+            return response($response, 201);
+
+        } catch (Exception $ex) {
+            return response('Ошибка сервиса', 500);
+        }
     }
 
+    /** Авторизация, возвращает токен и базовую информацию о пользователе
+     * @param Request $request
+     * @return array|Application|ResponseFactory|Response
+     */
+    public function login(Request $request)
+    {
+        try {
+
+            $fields = $request->validate([
+                'email' => 'required|string',
+                'password' => 'required|string'
+            ]);
+
+            $user = User::where('email', $fields['email'])->first();
+
+            if (!$user || !Hash::check($fields['password'], $user->password)) {
+                return response(
+                    ['message' => 'Неправильный логин или пароль'],
+                    401
+                );
+            }
+
+            $user->tokens()->delete();
+            if ($user->id == 1) {
+                $token = $user->createToken('api-access', ['create-users'])->plainTextToken;
+            } else
+                $token = $user->createToken('api-access')->plainTextToken;
+
+            $response = [
+                'token' => $token,
+                'user' => $user,
+            ];
+            return $response;
+
+        } catch (Exception $ex) {
+            return response('Ошибка сервиса', 500);
+        }
+    }
+
+    /** Разлогинивание. Удаляет токен
+     * @param Request $request
+     * @return string[]
+     */
     public function logout(Request $request)
     {
         auth()->user()->tokens()->delete();

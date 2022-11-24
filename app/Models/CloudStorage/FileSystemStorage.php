@@ -2,7 +2,6 @@
 
 namespace App\Models\CloudStorage;
 
-use Illuminate\Contracts\Filesystem\FileNotFoundException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Storage;
@@ -73,7 +72,7 @@ class FileSystemStorage implements CloudStorageInterface
     function delete(int $id): bool
     {
         if (!$storedFile = StoredFile::where('id', '=', $id)->where('owner', '=', $this->getUserId())->first()) {
-            throw new FileNotFoundException('File with that id does not exist');
+            throw new ResourceNotFoundException('File with that id does not exist');
         }
 
         if (!Storage::delete($storedFile->location)) {
@@ -126,7 +125,7 @@ class FileSystemStorage implements CloudStorageInterface
     function rename(int $id, string $newName): bool
     {
         if (!$storedFile = StoredFile::where('id', '=', $id)->where('owner', '=', $this->getUserId())->first()) {
-            throw new FileNotFoundException('File with that id does not exist');
+            throw new ResourceNotFoundException('File with that id does not exist');
         }
         $oldPath = pathinfo($storedFile->location);
         $newPath = $oldPath['dirname'] . DIRECTORY_SEPARATOR . $newName . '.' . $oldPath['extension'];
