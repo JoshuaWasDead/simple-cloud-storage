@@ -9,6 +9,7 @@ use Illuminate\Contracts\Routing\ResponseFactory;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
@@ -24,7 +25,7 @@ class AuthController extends Controller
         try {
 
             if (!auth()->user()->tokenCan('create-users')) {
-                abort(403);
+                return response(['error' => 'Доступ запрещён'], 403);
             }
 
             $fields = $request->validate([
@@ -43,15 +44,21 @@ class AuthController extends Controller
 
             $user->save();
 
-            $token = $user->createToken('api-access')->plainTextToken;
+            $token = $user->createToken('api-access', [])->plainTextToken;
 
             $response = [
                 'token' => $token,
-                'user' => $user,
+                'user' => [
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'favorite_colour' => $user->favorite_colour
+                ],
             ];
 
             return response($response, 201);
 
+        } catch (ValidationException $ex) {
+            return response($ex->getMessage(), 422);
         } catch (Exception $ex) {
             return response('Ошибка сервиса', 500);
         }
@@ -81,16 +88,22 @@ class AuthController extends Controller
 
             $user->tokens()->delete();
             if ($user->id == 1) {
-                $token = $user->createToken('api-access', ['create-users'])->plainTextToken;
+                $token = $user->createToken('api-access', ['create-users', 'access-sensitive-info'])->plainTextToken;
             } else
-                $token = $user->createToken('api-access')->plainTextToken;
+                $token = $user->createToken('api-access', [])->plainTextToken;
 
             $response = [
                 'token' => $token,
-                'user' => $user,
+                'user' => [
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'favorite_colour' => $user->favorite_colour
+                ],
             ];
             return $response;
 
+        } catch (ValidationException $ex) {
+            return response($ex->getMessage(), 422);
         } catch (Exception $ex) {
             return response('Ошибка сервиса', 500);
         }

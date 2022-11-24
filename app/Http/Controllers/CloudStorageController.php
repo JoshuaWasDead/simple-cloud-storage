@@ -4,12 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Models\CloudStorage\CloudStorageInterface;
 use Exception;
-use Illuminate\Contracts\Filesystem\FileNotFoundException;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Routing\ResponseFactory;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Storage;
+use RuntimeException;
+use Symfony\Component\HttpFoundation\File\Exception\UploadException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\Routing\Exception\ResourceNotFoundException;
 use Throwable;
@@ -99,7 +100,9 @@ class CloudStorageController extends Controller
 
             return response(['id' => $result], 200);
 
-        } catch (Exception $ex) {
+        } catch (UploadException $ex) {
+            return response(['error' => $ex->getMessage()], 500);
+        }catch (Exception $ex) {
             return response(['error' => 'Ошибка сервиса'], 500);
         }
     }
@@ -150,12 +153,16 @@ class CloudStorageController extends Controller
         }
     }
 
-    /** Возвращает объём всех файлов на диске
+    /**
+     * Возвращает объём всех файлов на диске
      * @return Application|ResponseFactory|Response|string
      */
     public function volumeAll()
     {
         try {
+            if (!auth()->user()->tokenCan('access-sensitive-info')) {
+                return response(['error' => 'Доступ запрещён'], 403);
+            }
             $userId = auth()->user()->getAuthIdentifier();
             return $this->storage->setUserId($userId)->volumeUser();
         } catch (Throwable $ex) {

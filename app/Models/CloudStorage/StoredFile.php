@@ -51,5 +51,8 @@ class StoredFile extends Model
     public function pruning()
     {
         Storage::delete($this->location);
+        if (!StoredFile::where('folder', '=', $this->folder)->where('id', '!=', $this->id)->first()) {
+            Storage::deleteDirectory(dirname($this->location));
+        }
     }
 }

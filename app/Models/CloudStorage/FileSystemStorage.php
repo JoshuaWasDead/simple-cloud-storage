@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\File\Exception\UploadException;
 use Symfony\Component\Routing\Exception\ResourceNotFoundException;
+use Throwable;
 use const DIRECTORY_SEPARATOR;
 
 class FileSystemStorage implements CloudStorageInterface
@@ -39,7 +40,7 @@ class FileSystemStorage implements CloudStorageInterface
         }
 
         if (!$this->checkIfUserHasSpace($file->getSize())) {
-            throw new UploadException('Not enough space on disk');
+            throw new RuntimeException('Not enough space on disk');
         }
 
         if (Storage::exists($savePath . '/' . $fileName)) {
@@ -47,7 +48,7 @@ class FileSystemStorage implements CloudStorageInterface
         }
 
         if (!$path = Storage::putFileAs($savePath, $file, $fileName)) {
-            throw new UploadException('Could not save file');
+            throw new RuntimeException('Could not save file');
         }
 
         $storedFile = new StoredFile;
@@ -106,6 +107,7 @@ class FileSystemStorage implements CloudStorageInterface
                     'id' => $storedFile->id,
                     'name' => basename($storedFile->location),
                     'hash' => $storedFile->hash,
+                    'size' => $this->formatFileSize($storedFile->file_size),
                 ];
                 continue;
             }
@@ -113,6 +115,7 @@ class FileSystemStorage implements CloudStorageInterface
                 'id' => $storedFile->id,
                 'name' => basename($storedFile->location),
                 'hash' => $storedFile->hash,
+                'size' => $this->formatFileSize($storedFile->file_size),
             ];
         }
         return $list;
@@ -184,6 +187,12 @@ class FileSystemStorage implements CloudStorageInterface
         return $this;
     }
 
+    /**
+     * Проверяет, хватит ли у пользователя места, чтобы загрузить файл определенного размера
+     * @param int $size
+     * @return bool
+     * @throws Throwable
+     */
     private function checkIfUserHasSpace(int $size): bool
     {
         $otherFiles = StoredFile::where('owner', '=', $this->getUserId())->sum('file_size');
