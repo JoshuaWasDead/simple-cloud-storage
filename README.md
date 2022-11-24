@@ -28,18 +28,21 @@ docker
 php8.1
 composer
 ```
+
 1. Клонировать проект
 2. В корне проекта ```composer install```
 3. Создать .env файл, заполнить согласно .env.example, специфичные для проекта:
     - ADMIN_DEFAULT_EMAIL - почта админа по умолчанию
     - ADMIN_DEFAULT_PASSWORD - пароль админа по умолчанию
     - USER_STORAGE_FOLDER - папка, в которой хранятся пользовательские файлы
-    - MAX_USER_STORAGE=100000000 - максимальный объём файлов пользователя 
+    - MAX_USER_STORAGE=100000000 - максимальный объём файлов пользователя
     - MAX_FILE_SIZE=20000000 - максимальный размер файла
 4. Выполнить ```php artisan key:generate```
-4. Выполнить ```crontab -e```, туда добавить ```* * * * * cd /путь/к/проекту/ && ./vendor/bin/sail artisan schedule:run >> /dev/null 2>&1```
-5. Выполнить ```sudo service cron restart```
-6. В корне проекта ```./vendor/bin/sail up```
+5. Выполнить ```crontab -e```, туда
+   добавить ```* * * * * cd /путь/к/проекту/ && ./vendor/bin/sail artisan schedule:run >> /dev/null 2>&1```
+6. Выполнить ```sudo service cron restart```
+7. В корне проекта ```./vendor/bin/sail up```
+8. ./vendor/bin/sail artisan migrate:fresh --seed
 
 ## Особенности реализации
 
