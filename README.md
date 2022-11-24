@@ -1,66 +1,332 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Simple Cloud Storage
 
-<p align="center">
-<a href="https://travis-ci.org/laravel/framework"><img src="https://travis-ci.org/laravel/framework.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+## Прототип сервиса облачного хранилища для файлов.
 
-## About Laravel
+- регистрация и авторизация (каждый пользователь видит свои файлы);
+- базовая информация о пользователе
+- создание папок (один уровень вложенности, без подпапок);
+- список файлов;
+- загрузка файлов;
+- переименование файлов;
+- удаление файлов,
+- скачивание файлов;
+- объем всех файлов на диске одного пользователя - `100 мб`;
+- валидация при загрузке файлов:
+    1. максимальный размер одного файла `20мб`
+    2. запрещено загружать `*.php` файлы
+- получение размера всех файлов внутри директории
+- получение размера всех файлов пользователя
+- получение размера всех файлов на сервере (доступно только администратору)
+- возможность, при загрузке, указывать срок хранения файла, после которого он сам удаляется
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Развертывание проекта
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+### Требования
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+```
+docker
+php8.1
+composer
+```
+1. Клонировать проект
+2. В корне проекта ```composer install```
+3. Создать .env файл, заполнить согласно .env.example, специфичные для проекта:
+    - ADMIN_DEFAULT_EMAIL - почта админа по умолчанию
+    - ADMIN_DEFAULT_PASSWORD - пароль админа по умолчанию
+    - USER_STORAGE_FOLDER - папка, в которой хранятся пользовательские файлы
+    - MAX_USER_STORAGE=100000000 - максимальный объём файлов пользователя 
+    - MAX_FILE_SIZE=20000000 - максимальный размер файла
+4. Выполнить ```crontab -e```, туда добавить ```* * * * * cd /путь/к/проекту/ && ./vendor/bin/sail artisan schedule:run >> /dev/null 2>&1```
+5. Выполнить ```sudo service cron restart```
+6. В корне проекта ```./vendor/bin/sail up```
 
-## Learning Laravel
+## Особенности реализации
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+### Регистрация и авторизация (каждый пользователь видит свои файлы):
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+    - При сиде базы (artisan migrate:fresh --seed) на основе почты и пароля из .env создаётся администратор с правом '
+      create-users', который может через 'api/register' создавать новых пользователей и просматривать общий объём файлов
+      на диске через 'api/file/volume/all'
+    - Все пользователи авторизуются через '/api/login', указывая почту и пароль, в ответ получают токен и базовую
+      информацию о пользователе
+    - Разлогинивание через '/api/logout', текущий токен при этом удаляется
+    - Все операции с файлами доступны только авторизованным пользователям
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains over 2000 video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+### Базовая информация о пользователе
 
-## Laravel Sponsors
+    - Имя, почта, любимый цвет, указанные при регистрации
+    - Выдаётся пользователю при авторизации
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the Laravel [Patreon page](https://patreon.com/taylorotwell).
+### Создание папок (один уровень вложенности, без подпапок):
 
-### Premium Partners
+    - Папки создаются при загрузке файлов, удаляются когда в них не остаётся файлов
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Cubet Techno Labs](https://cubettech.com)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[Many](https://www.many.co.uk)**
-- **[Webdock, Fast VPS Hosting](https://www.webdock.io/en)**
-- **[DevSquad](https://devsquad.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[OP.GG](https://op.gg)**
-- **[WebReinvent](https://webreinvent.com/?utm_source=laravel&utm_medium=github&utm_campaign=patreon-sponsors)**
-- **[Lendio](https://lendio.com)**
+### Работа с файлами:
 
-## Contributing
+    - Все файлы при загрузке и изменениях регистрируются в таблице, из которой уже в дальнейшем берутся данные о папке, где они находятся, их размере, местоположении и дате, когда их нужно удалить
+    - Данные о максимальных размерах файлов, папок пользователя и т.п. хранятся в .env, доступны через конфиг storage
+    - Возможность, при загрузке, указывать срок хранения файла, после которого он сам удаляется реализована через метод pruning в модели сохраненного файла StoredFile
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+### API
 
-## Code of Conduct
+К всем методам, кроме авторизации, нужно передавать Authorization: Bearer токен, получаемый при авторизации
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+#### /api/file/upload
 
-## Security Vulnerabilities
+* `POST` : Загрузить файл в хранилище
+* `file` - файл, который надо загрузить
+* `ttk` - Сколько дней хранить файл
+* `folder` - Папка, в которую сохранить файл
+  Запрос:
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+```
+curl --location --request POST 'http://localhost/api/file/upload' \
+--header 'Accept: application/json' \
+--header 'Authorization: Bearer 2|17ebnN9USvYaEs1c7IMd2RXqUD2NTW6dPaivkdXN' \
+--form 'file=@"/D:/Downloads/файл.jpg"' \
+--form 'ttk="10"' \
+--form 'folder="folder1"'
+```
 
-## License
+Ответ: `id` - id загруженного файла
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+```
+{
+    "id": 2
+}
+```
+
+#### /api/file/{id}
+
+* `GET` : Скачать файл по id
+* `id` - id файла
+
+Запрос:
+
+```
+curl --location --request GET 'http://localhost/api/file/2' \
+--header 'Accept: application/json' \
+--header 'Authorization: Bearer 2|17ebnN9USvYaEs1c7IMd2RXqUD2NTW6dPaivkdXN'
+```
+
+Ответ: файл
+
+#### /api/file/delete/{id}
+
+* `DELETE` : Удалить файл из хранилища
+* `id` - id файла  
+  Запрос:
+
+```
+curl --location --request DELETE 'http://localhost/api/file/delete/4' \
+--header 'Accept: application/json' \
+--header 'Authorization: Bearer 2|17ebnN9USvYaEs1c7IMd2RXqUD2NTW6dPaivkdXN'
+```
+
+Ответ:
+
+```
+{
+    "message": "Успешно удалено"
+}
+```
+
+#### /api/file/rename/{id}
+
+* `POST` : Переименовать файл по id
+* `id` - id файла
+
+Запрос:
+
+```
+curl --location --request POST 'http://localhost/api/file/rename/5' \
+--header 'Accept: application/json' \
+--header 'Authorization: Bearer 6|GlF05xdQ67M9coVE10z0R87zdiol9t48k4ade7PI' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "newName": "test"
+}'
+```
+
+Ответ: `title` - название объявления, `price` - цена, `photos` - массив с ссылкой на главное фото
+
+```
+{
+    "message": "Успешно переименовано"
+}
+```
+
+#### /api/file/list
+
+* `GET` : Получить все файлы пользователя
+
+Запрос:
+
+```
+curl --location --request GET 'http://localhost/api/file/list' \
+--header 'Accept: application/json' \
+--header 'Authorization: Bearer 2|17ebnN9USvYaEs1c7IMd2RXqUD2NTW6dPaivkdXN' \
+--data-raw ''
+```
+
+Ответ: `id` - id файлв, `name` - название файлв, `hash` - хэш сумма файла, `size` - размер файла
+
+Файлы без папок лежат в массиве loose
+
+```
+{
+    "folder1": [
+        {
+            "id": 1,
+            "name": "de.jpg",
+            "hash": "4f40c879c935ec640cf91112d4bccf1d99e29144",
+            "size": "597.12 KB"
+        },
+        {
+            "id": 2,
+            "name": "обложкавидео.jpg",
+            "hash": "f2ac75921d126c931a6abe3d56a01085ff90434a",
+            "size": "196.03 KB"
+        },
+        {
+            "id": 3,
+            "name": "test.jpg",
+            "hash": "4ec742c574447642c900ce3e652ba6decafae817",
+            "size": "154.17 KB"
+        }
+    ],
+    "folder5": [
+        {
+            "id": 5,
+            "name": "de.jpg",
+            "hash": "4f40c879c935ec640cf91112d4bccf1d99e29144",
+            "size": "597.12 KB"
+        }
+    ],
+    "loose": [
+        {
+            "id": 6,
+            "name": "de.jpg",
+            "hash": "4f40c879c935ec640cf91112d4bccf1d99e29144",
+            "size": "597.12 KB"
+        }
+    ]
+}
+```
+
+#### /api/file/volume/folder?folder=folder1
+
+* `GET` : Получить общий объём файлов в папке пользователя
+* `folder` - название папки
+
+Запрос:
+
+```
+curl --location --request GET 'http://localhost/api/file/volume/folder?folder=folder1' \
+--header 'Accept: application/json' \
+--header 'Authorization: Bearer 2|17ebnN9USvYaEs1c7IMd2RXqUD2NTW6dPaivkdXN'
+```
+
+Ответ:
+
+```
+947.31 KB
+```
+
+#### /api/volume/user
+
+* `GET` : Получить общий объём файлов во всех папках пользователя
+
+Запрос:
+
+```
+curl --location --request GET 'http://localhost/api/volume/user' \
+--header 'Accept: application/json' \
+--header 'Authorization: Bearer 2|17ebnN9USvYaEs1c7IMd2RXqUD2NTW6dPaivkdXN'
+```
+
+Ответ:
+
+```
+2.09 MB
+```
+
+#### /api/volume/all
+
+* `GET` : Получить общий объём файлов. Доступно только администратору.
+
+Запрос:
+
+```
+curl --location --request GET 'http://localhost/api/volume/all' \
+--header 'Accept: application/json' \
+--header 'Authorization: Bearer 2|17ebnN9USvYaEs1c7IMd2RXqUD2NTW6dPaivkdXN'
+```
+
+Ответ:
+
+```
+2.09 MB
+```
+
+#### /api/register
+
+* `GET` : Регистрация нового пользователя. Доступно только администратору.
+* `name` - Имя пользователя. Обязательное поле.
+* `email` - Почта пользователя. Обязательное поле.
+* `password` - Пароль пользователя. Обязательное поле.
+* `password_confitmation` - Подтверждение пароля пользователя. Обязательное поле.
+* `favorite_colour` - Любимый цвет пользователя. Небязательное поле.
+
+Запрос:
+
+```
+curl --location --request POST 'http://localhost/api/register' \
+--header 'Accept: application/json' \
+--header 'Authorization: Bearer 2|17ebnN9USvYaEs1c7IMd2RXqUD2NTW6dPaivkdXN' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "name": "test",
+    "email": "test@test.test",
+    "password": "test",
+    "password_confirmation": "test",
+    "favorite_colour": "purple"
+}'
+```
+
+Ответ:
+
+```
+{
+    "token": "4|HqeBDohZbc50iCNLxgYh6SzRUcyjBxNt6k4A0toy",
+    "user": {
+        "name": "test",
+        "email": "test@test.test",
+        "favorite_colour": "purple",
+        "updated_at": "2022-11-24T16:36:40.000000Z",
+        "created_at": "2022-11-24T16:36:40.000000Z",
+        "id": 3
+    }
+}
+```
+
+#### /api/login
+
+* `GET` : Разлогинивание. Предыдущий токен удаляется.
+
+Запрос:
+
+```
+curl --location --request POST 'http://localhost/api/logout' \
+--header 'Accept: application/json' \
+--header 'Authorization: Bearer 5|cyO3bbaIde9KpXskluS89Ve0TuabqjXhsD0V65o9' \
+--data-raw ''
+```
+
+Ответ:
+
+```
+{
+    "message": "Вы были успешно разлогинены"
+}
+```
