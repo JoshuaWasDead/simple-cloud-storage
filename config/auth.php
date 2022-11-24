@@ -108,4 +108,20 @@ return [
 
     'password_timeout' => 10800,
 
+    /*
+    |--------------------------------------------------------------------------
+    | Дефолтные email и пароль админа
+    |--------------------------------------------------------------------------
+    */
+
+    'admin_email' => env(
+        'ADMIN_DEFAULT_EMAIL',
+        'test@example.com'
+    ),
+
+    'admin_password' => env(
+        'ADMIN_DEFAULT_PASSWORD',
+        'password'
+    )
+
 ];
